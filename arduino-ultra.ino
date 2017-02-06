@@ -9,7 +9,11 @@
 #define serialDebug //Debug output over Serial connection to PC
 
 long conversionfactor = 29.1;
-int measuredelay = 2;
+unsigned long measuredelay = 19500;
+long measuretimeout = 19000;
+
+long measurecompletetime = 0;
+long sendcompletetime = 0;
 
 
 //------------------Pinset--------------------
@@ -58,6 +62,7 @@ int sensor[10][2] =				// Array sensor [Sensornummer][Trigger,Echo]
 };
 
 long ranges[10] = { 0 };		//Rangevector ; Line = Sensornumber
+int measurecount = 0;
 
 //-------------------Setup-----------------------
 
@@ -89,24 +94,34 @@ long getrange(int sensornumber)
 {
 	long range = 0;
 	long time = 0;
-
+	
+	unsigned long measuretime = micros();
 	digitalWrite(sensor[sensornumber][0], LOW); //trigger -> LOW
 	delayMicroseconds(3);
 	noInterrupts();
 	digitalWrite(sensor[sensornumber][0], HIGH); //Trigger Impuls 10 us
 	delayMicroseconds(10);
 	digitalWrite(sensor[sensornumber][0], LOW);
-	time = pulseIn(sensor[sensornumber][1], HIGH); // Echo-Zeit messen
+	time = pulseIn(sensor[sensornumber][1], HIGH,measuretimeout); // Echo-Zeit messen
 	interrupts();
 	time = (time / 2); // Zeit halbieren
 	range = time / conversionfactor; // Zeit in Zentimeter umrechnen
+	if (micros() > measuretime)		//Check if micros overflowed
+	{
+		while (micros() <= measuretime + measuredelay)
+		{
+		}
+	}
 	return(range);
 }
 
 #ifdef serialDebug
-void displayrange(int number)
+void displayranges()
 {
-	Serial.println(String("Entfernung Sensor ")+(number)+(" : ")+(ranges[number]));
+	for (int i = 0; i <= 9; i++)
+	{
+		Serial.println(ranges[i]);
+	}
 }
 #endif // serialDebug
 
@@ -115,15 +130,24 @@ void displayrange(int number)
 
 void loop() 
 {
+	#ifdef serialDebug
+	measurecompletetime = micros();
 	for (int n = 0; n <= 9; n++)
 	{
 		ranges[n] = getrange(n);
-
 	}
-	for (int n = 0; n <= 9; n++)
-	{
-		displayrange(n);
-	}
+	measurecompletetime = micros() - measurecompletetime;
+	sendcompletetime = micros();
 
+	displayranges();
+
+	sendcompletetime = micros() - sendcompletetime;
+	Serial.println(String(measurecount) + ("|m-time:") + (measurecompletetime)+("|s-time:") + (sendcompletetime));
+	#endif // serialDebug
+
+	
+
+	measurecount++;
+	//delay(10);
 
 }
