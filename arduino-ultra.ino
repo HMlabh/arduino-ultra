@@ -8,10 +8,13 @@
 //------------------Defines-------------------
 #define serialDebug //Debug output over Serial connection to PC
 
-
+long conversionfactor = 29.1;
+int measuredelay = 2;
 
 
 //------------------Pinset--------------------
+
+#define test A1
 
 namespace pin
 {
@@ -29,12 +32,12 @@ namespace pin
 	int sen5_e = 11;
 	int sen6_t = 12;
 	int sen6_e = 13;
-	int sen7_t = 14;
-	int sen7_e = 15;
-	int sen8_t = 16;
-	int sen8_e = 17;
-	int sen9_t = 18;
-	int sen9_e = 19;
+	int sen7_t = 18;
+	int sen7_e = 19;
+	int sen8_t = 20;
+	int sen8_e = 21;
+	int sen9_t = 22;
+	int sen9_e = 23;
 }
 
 
@@ -42,32 +45,85 @@ namespace pin
 
 int sensor[10][2] =				// Array sensor [Sensornummer][Trigger,Echo]
 {
-{ pin::sen0_t , pin::sen0_e }, //Zeile 0 : Sensor 0 [T,E]
-{ pin::sen1_t , pin::sen1_e }, //Zeile 1 : Sensor 1 [T,E]
-{ pin::sen2_t , pin::sen2_e }, //Zeile 2 : Sensor 2 [T,E]
-{ pin::sen3_t , pin::sen3_e }, //Zeile 3 : Sensor 3 [T,E]
-{ pin::sen4_t , pin::sen4_e }, //Zeile 4 : Sensor 4 [T,E]
-{ pin::sen5_t , pin::sen5_e }, //Zeile 5 : Sensor 5 [T,E]
-{ pin::sen6_t , pin::sen6_e }, //Zeile 6 : Sensor 6 [T,E]
-{ pin::sen7_t , pin::sen7_e }, //Zeile 7 : Sensor 7 [T,E]
-{ pin::sen8_t , pin::sen8_e }, //Zeile 8 : Sensor 8 [T,E]
-{ pin::sen9_t , pin::sen9_e }  //Zeile 9 : Sensor 9 [T,E]
+{ pin::sen0_t , pin::sen0_e }, //Line 0 : Sensor 0 [T,E]
+{ pin::sen1_t , pin::sen1_e }, //Line 1 : Sensor 1 [T,E]
+{ pin::sen2_t , pin::sen2_e }, //Line 2 : Sensor 2 [T,E]
+{ pin::sen3_t , pin::sen3_e }, //Line 3 : Sensor 3 [T,E]
+{ pin::sen4_t , pin::sen4_e }, //Line 4 : Sensor 4 [T,E]
+{ pin::sen5_t , pin::sen5_e }, //Line 5 : Sensor 5 [T,E]
+{ pin::sen6_t , pin::sen6_e }, //Line 6 : Sensor 6 [T,E]
+{ pin::sen7_t , pin::sen7_e }, //Line 7 : Sensor 7 [T,E]
+{ pin::sen8_t , pin::sen8_e }, //Line 8 : Sensor 8 [T,E]
+{ pin::sen9_t , pin::sen9_e }  //Line 9 : Sensor 9 [T,E]
 };
 
+long ranges[10] = { 0 };		//Rangevector ; Line = Sensornumber
 
 //-------------------Setup-----------------------
 
 void setup() 
 {
+#ifdef serialDebug				//establish Serial Debug-Connection
+	Serial.begin(115200);
 	
+	while (!Serial) 
+	{
+		; // wait for serial port to connect. Needed for native USB port only
+	}
+	
+#endif // serialDebug
+
+
+
+	//Pinmode Sensors
+	for (int n = 0; n <= 9; n++)
+	{
+		pinMode(sensor[n][0], OUTPUT); //Sensor n Trigger -> Output
+		pinMode(sensor[n][1], INPUT_PULLUP);  //Sensor n Echo    -> Output
+	}
 }
 
 //-------------------Functions------------------
+
+long getrange(int sensornumber)
+{
+	long range = 0;
+	long time = 0;
+
+	digitalWrite(sensor[sensornumber][0], LOW); //trigger -> LOW
+	delayMicroseconds(3);
+	noInterrupts();
+	digitalWrite(sensor[sensornumber][0], HIGH); //Trigger Impuls 10 us
+	delayMicroseconds(10);
+	digitalWrite(sensor[sensornumber][0], LOW);
+	time = pulseIn(sensor[sensornumber][1], HIGH); // Echo-Zeit messen
+	interrupts();
+	time = (time / 2); // Zeit halbieren
+	range = time / conversionfactor; // Zeit in Zentimeter umrechnen
+	return(range);
+}
+
+#ifdef serialDebug
+void displayrange(int number)
+{
+	Serial.println(String("Entfernung Sensor ")+(number)+(" : ")+(ranges[number]));
+}
+#endif // serialDebug
+
 
 //-------------------Loop--------------------
 
 void loop() 
 {
-	
+	for (int n = 0; n <= 9; n++)
+	{
+		ranges[n] = getrange(n);
+
+	}
+	for (int n = 0; n <= 9; n++)
+	{
+		displayrange(n);
+	}
+
 
 }
