@@ -6,19 +6,27 @@
 
 
 //------------------Defines-------------------
-#define serialDebug //Debug output over Serial connection to PC
+//#define serialDebug //Debug output over Serial connection to PC
+//#define serialDebug_continuous //reads the 16 Sensors continuous
+
+
+//------------------Params--------------------
+namespace param
+{
+	int8_t ident = 85; //Identifier: 85 "U"
+	int8_t ident_ask = 105;  // define ident_ask Message: 105 "i"
+	int8_t call = 99; //define call Message: 99 "c"
+	int8_t ask = 97;  // define ask Message: 97 "a"
+}
 
 long conversionfactor = 29.1;
 unsigned long measuredelay = 19500;
 long measuretimeout = 19000;
-
 long measurecompletetime = 0;
-long sendcompletetime = 0;
-
+int8_t mram = 0;	//Message storage
 
 //------------------Pinset--------------------
 
-#define test A1
 
 namespace pin
 {
@@ -68,15 +76,13 @@ int measurecount = 0;
 
 void setup() 
 {
-#ifdef serialDebug				//establish Serial Debug-Connection
 	Serial.begin(115200);
 	
 	while (!Serial) 
 	{
 		; // wait for serial port to connect. Needed for native USB port only
 	}
-	
-#endif // serialDebug
+
 
 
 
@@ -90,6 +96,7 @@ void setup()
 
 //-------------------Functions------------------
 
+//get Ranges of all Sensors
 long getrange(int sensornumber)
 {
 	long range = 0;
@@ -115,39 +122,110 @@ long getrange(int sensornumber)
 	return(range);
 }
 
-#ifdef serialDebug
-void displayranges()
+//get all ranges
+void getallranges()
 {
-	for (int i = 0; i <= 9; i++)
+	for (int n = 0; n <= 9; n++)
 	{
-		Serial.println(ranges[i]);
+		ranges[n] = getrange(n);
 	}
 }
-#endif // serialDebug
 
+//Send Solution vector to Node
+void sendsolution()
+{
+#ifdef serialDebug
+	Serial.println("Solution:");
+#endif // serialDebug
+	for (int i = 0; i <= 9; i++)
+	{
+		Serial.write(lowByte(ranges[i]));
+		Serial.write(highByte(ranges[i]));
+	}
+
+#ifdef serialDebug
+	Serial.println("");
+	Serial.println("ASCII:");
+	for (int i = 0; i <= 9; i++)
+	{
+		Serial.print(ranges[i]);
+		Serial.print(" ; ");
+	}
+	Serial.println("");
+#endif // serialDebug
+}
 
 //-------------------Loop--------------------
 
 void loop() 
 {
-	#ifdef serialDebug
+
+#ifdef serialDebug
+	Serial.println("waiting...");
+#endif // serialDebug
+
+#ifndef serialDebug_continuous
+	while (!Serial.available()) {} //waits for a Message from Node
+	mram = Serial.read(); //reads Message from Node
+#endif //serialDebug_continuous
+
+#ifdef serialDebug
+	Serial.println("message received");
+#endif // serialDebug
+
+
+	if (mram == param::call)//call message received
+	{
+#ifdef serialDebug
+		Serial.println(String("..call message.."));
+#endif // serialDebug
+		getallranges();
+	}
+	//-----------------------------------------------------------------
+	else if (mram == param::ask)//ask message recieved
+	{
+#ifdef serialDebug
+		Serial.println(String("..ask message.."));
+#endif // serialDebug
+		sendsolution();
+	}
+	//----------------------------------------------------------------
+	else if (mram == param::ident_ask)//ident_ask message recieved
+	{
+#ifdef serialDebug
+		Serial.println(String("Ident:"));
+#endif // serialDebug
+
+		Serial.write(param::ident);
+
+#ifdef serialDebug
+		Serial.println(String(" "));
+#endif // serialDebug
+	}
+	//----------------------------------------------------------------
+	else//anny other message -> do nothing
+	{
+#ifdef serialDebug
+		Serial.println(String("!!unidentified message!!"));
+#endif // serialDebug
+	}
+
+
+
+	#ifdef serialDebug_continuous
 	measurecompletetime = micros();
 	for (int n = 0; n <= 9; n++)
 	{
 		ranges[n] = getrange(n);
 	}
 	measurecompletetime = micros() - measurecompletetime;
-	sendcompletetime = micros();
 
-	displayranges();
+	for (int i = 0; i <= 9; i++)
+	{
+		Serial.println(ranges[i]);
+	}
 
-	sendcompletetime = micros() - sendcompletetime;
-	Serial.println(String(measurecount) + ("|m-time:") + (measurecompletetime)+("|s-time:") + (sendcompletetime));
-	#endif // serialDebug
-
-	
-
+	Serial.println(String(measurecount) + ("|m-time:") + (measurecompletetime)+("|s-time:"));
+	#endif // serialDebug_continuous
 	measurecount++;
-	//delay(10);
-
 }
