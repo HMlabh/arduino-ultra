@@ -69,7 +69,7 @@ int sensor[10][2] =				// Array sensor [Sensornummer][Trigger,Echo]
 { pin::sen9_t , pin::sen9_e }  //Line 9 : Sensor 9 [T,E]
 };
 
-long ranges[10] = { 0 };		//Rangevector ; Line = Sensornumber
+int16_t ranges[10] = { 0 };		//Rangevector ; Line = Sensornumber
 int measurecount = 0;
 
 //-------------------Setup-----------------------
@@ -97,7 +97,7 @@ void setup()
 //-------------------Functions------------------
 
 //get Ranges of all Sensors
-long getrange(int sensornumber)
+int16_t getrange(int sensornumber)
 {
 	long range = 0;
 	long time = 0;
@@ -111,7 +111,7 @@ long getrange(int sensornumber)
 	digitalWrite(sensor[sensornumber][0], LOW);
 	time = pulseIn(sensor[sensornumber][1], HIGH,measuretimeout); // Echo-Zeit messen
 	interrupts();
-	time = (time / 2); // Zeit halbieren
+	time = (time / 2.0); // Zeit halbieren
 	range = time / conversionfactor; // Zeit in Zentimeter umrechnen
 	if (micros() > measuretime)		//Check if micros overflowed
 	{
@@ -119,7 +119,7 @@ long getrange(int sensornumber)
 		{
 		}
 	}
-	return(range);
+	return((int)range);
 }
 
 //get all ranges
