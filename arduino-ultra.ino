@@ -5,28 +5,28 @@
 */
 
 
-//------------------Defines-------------------
+//----------------------Defines----------------------------
 //#define serialDebug //Debug output over Serial connection to PC
 //#define serialDebug_continuous //reads the 16 Sensors continuous
 
 
-//------------------Params--------------------
+//----------------------Params-----------------------------
+
 namespace param
 {
-	int8_t ident = 85; //Identifier: 85 "U"
-	int8_t ident_ask = 105;  // define ident_ask Message: 105 "i"
-	int8_t call = 99; //define call Message: 99 "c"
-	int8_t ask = 97;  // define ask Message: 97 "a"
+	int8_t ident = 85;		//Identifier: 85 "U"
+	int8_t ident_ask = 105; // define ident_ask Message: 105 "i"
+	int8_t call = 99;		//define call Message: 99 "c"
+	int8_t ask = 97;			// define ask Message: 97 "a"
 }
 
-long conversionfactor = 29.1;
-unsigned long measuredelay = 19500;
-long measuretimeout = 19000;
-long measurecompletetime = 0;
-int8_t mram = 0;	//Message storage
+long conversionfactor = 29.1;		//conversioncactor microseconds -> cm
+unsigned long measuredelay = 19500; //standard time for one measurement
+long measuretimeout = 19000;			//actual measurement timeout
+int8_t mram = 0;						//Message storage
 
-//------------------Pinset--------------------
 
+//----------------------Pinset-----------------------------
 
 namespace pin
 {
@@ -53,9 +53,10 @@ namespace pin
 }
 
 
-//-------------------Init-----------------------
+//----------------------Init-------------------------------
 
-int sensor[10][2] =				// Array sensor [Sensornummer][Trigger,Echo]
+// Array sensor [Sensornummer][Trigger,Echo]
+int sensor[10][2] =				
 {
 { pin::sen0_t , pin::sen0_e }, //Line 0 : Sensor 0 [T,E]
 { pin::sen1_t , pin::sen1_e }, //Line 1 : Sensor 1 [T,E]
@@ -69,13 +70,17 @@ int sensor[10][2] =				// Array sensor [Sensornummer][Trigger,Echo]
 { pin::sen9_t , pin::sen9_e }  //Line 9 : Sensor 9 [T,E]
 };
 
-int16_t ranges[10] = { 0 };		//Rangevector ; Line = Sensornumber
-int measurecount = 0;
+int16_t ranges[10] = { 0 };	//Rangevector ; Line = Sensornumber
 
-//-------------------Setup-----------------------
+int measurecount = 0;		//stores the number of measures done
+long measuretime = 0;		//Storage variable for Time measurement
+
+
+//----------------------Setup------------------------------
 
 void setup() 
 {
+	//starting serial connection to Host
 	Serial.begin(115200);
 	
 	while (!Serial) 
@@ -83,43 +88,55 @@ void setup()
 		; // wait for serial port to connect. Needed for native USB port only
 	}
 
-
+#ifdef serialDebug //sends debug message
+	Serial.println("Serial Connection established");
+	Serial.println(String("identifier : ") + (param::ident));
+	Serial.println(String("call Message : ") + (param::call));
+	Serial.println(String("ask Message : ") + (param::ask));
+#endif // serialDebug
 
 
 	//Pinmode Sensors
 	for (int n = 0; n <= 9; n++)
 	{
-		pinMode(sensor[n][0], OUTPUT); //Sensor n Trigger -> Output
-		pinMode(sensor[n][1], INPUT_PULLUP);  //Sensor n Echo    -> Output
+		pinMode(sensor[n][0], OUTPUT);		//Sensor n Trigger -> Output
+		pinMode(sensor[n][1], INPUT_PULLUP);//Sensor n Echo    -> Output
+
+#ifdef serialDebug
+		Serial.println(String("Sensor ") + (i)+("-> OUTPUT"));
+#endif // serialDebug
+
 	}
 }
 
-//-------------------Functions------------------
+//----------------------Functions--------------------------
 
-//get Ranges of all Sensors
+
+//get Ranges of a Sensor
 int16_t getrange(int sensornumber)
 {
-	long range = 0;
-	long time = 0;
+	long range = 0;	//return value
+	long time = 0;	//time storage
 	
-	unsigned long measuretime = micros();
+	unsigned long measuretime = micros(); //set beginning of measure
+
 	digitalWrite(sensor[sensornumber][0], LOW); //trigger -> LOW
 	delayMicroseconds(3);
-	noInterrupts();
+	noInterrupts();//disable all interrupts
 	digitalWrite(sensor[sensornumber][0], HIGH); //Trigger Impuls 10 us
 	delayMicroseconds(10);
 	digitalWrite(sensor[sensornumber][0], LOW);
-	time = pulseIn(sensor[sensornumber][1], HIGH,measuretimeout); // Echo-Zeit messen
+	time = pulseIn(sensor[sensornumber][1], HIGH,measuretimeout); //measure echo duration
 	interrupts();
-	time = (time / 2.0); // Zeit halbieren
-	range = time / conversionfactor; // Zeit in Zentimeter umrechnen
-	if (micros() > measuretime)		//Check if micros overflowed
+	time = (time / 2.0);					//travel time is half the measured
+	range = time / conversionfactor;		//convert travel tim in cm
+	if (micros() > measuretime)			//Check if micros overflowed
 	{
-		while (micros() <= measuretime + measuredelay)
+		while (micros() <= measuretime + measuredelay)//wait echo to fade away
 		{
 		}
 	}
-	return((int)range);
+	return((int)range); //return measured range
 }
 
 //get all ranges
@@ -127,7 +144,7 @@ void getallranges()
 {
 	for (int n = 0; n <= 9; n++)
 	{
-		ranges[n] = getrange(n);
+		ranges[n] = getrange(n);//measure sensor [n]
 	}
 }
 
@@ -137,10 +154,11 @@ void sendsolution()
 #ifdef serialDebug
 	Serial.println("Solution:");
 #endif // serialDebug
+
 	for (int i = 0; i <= 9; i++)
 	{
-		Serial.write(lowByte(ranges[i]));
-		Serial.write(highByte(ranges[i]));
+		Serial.write(lowByte(ranges[i]));	//Send low 8-Bit of 16-Bit
+		Serial.write(highByte(ranges[i]));	//Send high 8-Bit of 16-Bit
 	}
 
 #ifdef serialDebug
@@ -155,7 +173,8 @@ void sendsolution()
 #endif // serialDebug
 }
 
-//-------------------Loop--------------------
+
+//----------------------Loop-------------------------------
 
 void loop() 
 {
@@ -165,8 +184,8 @@ void loop()
 #endif // serialDebug
 
 #ifndef serialDebug_continuous
-	while (!Serial.available()) {} //waits for a Message from Node
-	mram = Serial.read(); //reads Message from Node
+	while (!Serial.available()) {}	//waits for a Message from Node
+	mram = Serial.read();			//reads Message from Node
 #endif //serialDebug_continuous
 
 #ifdef serialDebug
@@ -181,7 +200,7 @@ void loop()
 #endif // serialDebug
 		getallranges();
 	}
-	//-----------------------------------------------------------------
+	//--------------------------------------------------------
 	else if (mram == param::ask)//ask message recieved
 	{
 #ifdef serialDebug
@@ -189,7 +208,7 @@ void loop()
 #endif // serialDebug
 		sendsolution();
 	}
-	//----------------------------------------------------------------
+	//--------------------------------------------------------
 	else if (mram == param::ident_ask)//ident_ask message recieved
 	{
 #ifdef serialDebug
@@ -202,7 +221,7 @@ void loop()
 		Serial.println(String(" "));
 #endif // serialDebug
 	}
-	//----------------------------------------------------------------
+	//--------------------------------------------------------
 	else//anny other message -> do nothing
 	{
 #ifdef serialDebug
@@ -213,19 +232,19 @@ void loop()
 
 
 	#ifdef serialDebug_continuous
-	measurecompletetime = micros();
+	measuretime = micros();
 	for (int n = 0; n <= 9; n++)
 	{
 		ranges[n] = getrange(n);
 	}
-	measurecompletetime = micros() - measurecompletetime;
+	measuretime = micros() - measuretime;
 
 	for (int i = 0; i <= 9; i++)
 	{
 		Serial.println(ranges[i]);
 	}
 
-	Serial.println(String(measurecount) + ("|m-time:") + (measurecompletetime)+("|s-time:"));
+	Serial.println(String(measurecount) + ("|m-time:") + (measuretime)+("|s-time:"));
 	#endif // serialDebug_continuous
 	measurecount++;
 }
