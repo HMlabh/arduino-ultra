@@ -136,7 +136,7 @@ int16_t getrange(int sensornumber)
 		{
 		}
 	}
-	return((int)range); //return measured range
+	return((int16_t)range); //return measured range
 }
 
 //get all ranges
