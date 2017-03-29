@@ -122,12 +122,12 @@ int16_t getrange(int sensornumber)
 
 	digitalWrite(sensor[sensornumber][0], LOW); //trigger -> LOW
 	delayMicroseconds(3);
-	noInterrupts();//disable all interrupts
+	//noInterrupts();//disable all interrupts
 	digitalWrite(sensor[sensornumber][0], HIGH); //Trigger Impuls 10 us
 	delayMicroseconds(10);
 	digitalWrite(sensor[sensornumber][0], LOW);
 	time = pulseIn(sensor[sensornumber][1], HIGH,measuretimeout); //measure echo duration
-	interrupts();
+	//interrupts();
 	time = (time / 2.0);					//travel time is half the measured
 	range = time / conversionfactor;		//convert travel tim in cm
 	if (micros() > measuretime)			//Check if micros overflowed
@@ -229,6 +229,7 @@ void loop()
 #endif // serialDebug
 	}
 
+	Serial.flush();
 
 
 	#ifdef serialDebug_continuous
